@@ -1,5 +1,33 @@
-Generating synthetic circuits
+# CircuitSense: A Hierarchical Circuit System Benchmark Bridging Visual Comprehension and Symbolic Reasoning in Engineering Design Process
+![Claude](https://img.shields.io/badge/Task-Multi_Modal-orange)
+![Claude](https://img.shields.io/badge/Task-Mathematical_reasoning-orange)
+![Claude](https://img.shields.io/badge/Dataset-CircuitSense-blue)
 
+![Claude](https://img.shields.io/badge/Model-Claude_Sonnet_4-green)
+![Gemini](https://img.shields.io/badge/Model-Gemini_2.5_Pro-green)
+![GPT](https://img.shields.io/badge/Model-GPT_4o-green)
+![qwen](https://img.shields.io/badge/Model-Qwen_2.5_VL-green)
+![internvl](https://img.shields.io/badge/Model-InternVL3-green)
+![GLM](https://img.shields.io/badge/Model-GLM_4.5V-green)
+
+Welcome to official repo of CircuitSense, a comprehensive visual circuit benchmark that evaluates models' capability in symbolic reasoning and visual mathematical derivation. We introduce a hierarchical synthetic generation pipeline consisting of a grid-based schematic generator and a block diagram generator with
+auto-derived symbolic equation labels. This repository contains the code for our hierarchical synthetic generation pipeline.
+
+For further information, please refer to our [preprint](https://arxiv.org/pdf/2509.22339).
+
+[[🌐 Webpage](https://circuitsense-benchmark.github.io)] [[🤗 Hugginface Dataset](https://huggingface.co/datasets/armanakbari4/CircuitSense)] [[📑 Paper](https://arxiv.org/pdf/2509.22339)]
+
+## 💥 News
+* **[2025.10.17]** 🚀 CircuitSense got accepted in [NeurIPS 2025 MATH-AI, The 5th Workshop on Mathematical Reasoning and AI](https://mathai2025.github.io) and will be presented in San Diego Convention Center on December 6th.
+* **[2025.09.29]** 🔥 We release the code for our hierarchical synthetic generation pipeline.
+* **[2025.09.25]** The [arxiv paper](https://arxiv.org/pdf/2509.22339) is online.
+
+
+## About CircuitSense
+<p align="center">
+    <img src="assets/overview_arman-1.png" width="65%"> <br>
+</p>
+We introduce CircuitSense, a comprehensive benchmark of 8,006 problems for evaluating visual-to-mathematical reasoning in circuit understanding which combines curated questions with synthetic problems focused on symbolic equation derivation. Our hierarchical synthetic generation pipeline produces novel circuits across six levels with guaranteed ground-truth symbolic equations, enabling rigorous evaluation. Our extensive evaluation on perception, analysis, and design tasks shows that models demonstrate adequate perception (85%+ for closed-source) but fail catastrophically at mathematical symbolic modeling (below 19%). This mathematical weakness directly undermines their design capabilities.
 
 Requirements:
 ```
@@ -104,4 +132,23 @@ python scripts/analyze_synthetic_circuits_robust.py \
   --max_circuits 50
 ```
 
+## Citation:
+If you find CircuitSense helpful for your research please cite our work:
+
+```bibtex
+@misc{akbari2025circuitsensehierarchicalcircuitbenchmark,
+      title={CircuitSense: A Hierarchical Circuit System Benchmark Bridging Visual Comprehension and Symbolic Reasoning in Engineering Design Process}, 
+      author={Arman Akbari and Jian Gao and Yifei Zou and Mei Yang and Jinru Duan and Dmitrii Torbunov and Yanzhi Wang and Yihui Ren and Xuan Zhang},
+      year={2025},
+      eprint={2509.22339},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2509.22339}, 
+}
+```
+
+
+
 This repository is based on [MAPS: Advancing Multi-modal Reasoning in Expert-level Physical Science](https://arxiv.org/abs/2501.10768). 
+
+
