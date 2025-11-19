@@ -62,7 +62,7 @@ def compute_stat_info(circ):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--note", type=str, default="v4")
+    parser.add_argument("--note", type=str, default="v11")
     parser.add_argument("--gen_num", type=int, default=1000)
     parser.add_argument("--save_path", type=str, default="./data/grid/test.json")
     parser.add_argument("--num_proc", type=int, default=8)

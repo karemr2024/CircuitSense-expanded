@@ -47,7 +47,6 @@ test.py
 SEPARATE*
 opamp_visualization*
 equivalence*
-convert_netlist*
 create_equation_derivation*
 backup_rule*
 inference/
@@ -80,9 +79,5 @@ scripts/sctrip*
 ./ppm_construction/test_bjt_1.tex
 ./ppm_construction/data_syn/data/*
 
-# Coding assistants
-.cursor/
-.cursor-cache/
-.cursor-tmp/
-.cursor-history/
+
 
