@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import os
-import sys
 import argparse
+import logging
 import subprocess
-import time
+import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 #main file
 def setup_paths():
@@ -49,10 +50,11 @@ def run_command(cmd, cwd=None, description=""):
         return True
         
     except subprocess.CalledProcessError as e:
-        print(f"Error: {description} failed with code {e.returncode}")
+        logger.error(f"{description} failed with code {e.returncode}")
+        logger.debug(f"Command: {' '.join(cmd)}")
         return False
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"{description} failed with exception: {e}")
         return False
 
 
@@ -87,7 +89,7 @@ def generate_circuits(paths, args):
     success = run_command(cmd, cwd=str(paths['script_dir']), description="Circuit generation")
     
     if success and not data_file.exists():
-        print("Warning: Data file was not created!")
+        logger.warning("Data file was not created after generation!")
         return False
     
     return success
@@ -107,7 +109,7 @@ def visualize_circuits(paths, args):
     if success:
         output_dir = paths['datasets_dir'] / args.note
         if not output_dir.exists():
-            print("Warning: Output directory was not created!")
+            logger.warning("Output directory was not created after visualization!")
             return False
     
     return success
@@ -118,8 +120,8 @@ def derive_equations(paths, args):
     labels_file = output_dir / "labels.json"
     
     if not labels_file.exists():
-        print(f"Error: Labels file not found: {labels_file}")
-        print("Equation derivation requires visualization to be completed first.")
+        logger.error(f"Labels file not found: {labels_file}")
+        logger.error("Equation derivation requires visualization to be completed first.")
         return False
     
     equations_output = output_dir / "symbolic_equations.json"
@@ -142,23 +144,22 @@ def derive_equations(paths, args):
                                                    
     if hasattr(args, 'generate_symbolic_questions') and args.generate_symbolic_questions:
         cmd.append("--generate_symbolic_questions")
-        print("🎓 Generating symbolic transfer function questions...")
+        logger.info("Generating symbolic transfer function questions...")
     
     if hasattr(args, 'questions_only') and args.questions_only:
         cmd.append("--questions_only")
-        print("🎓 Running in questions-only mode...")
+        logger.info("Running in questions-only mode...")
     
     success = run_command(cmd, cwd=str(paths['script_dir']), description="Equation derivation")
     
     if success:
         if equations_output.exists():
-            print(f"Symbolic equations saved to: {equations_output}")
+            logger.info(f"Symbolic equations saved to: {equations_output}")
             
-                                                                    
             if hasattr(args, 'generate_symbolic_questions') and args.generate_symbolic_questions:
-                print("🎓 Symbolic transfer function questions included in output!")
+                logger.info("Symbolic transfer function questions included in output!")
         else:
-            print("Warning: Equation file was not created!")
+            logger.warning("Equation file was not created!")
             return False
     
     return success
@@ -316,6 +317,12 @@ Examples:
 
 
 def main():
+    """Main entry point."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
     try:
         args = parse_arguments()
         paths = setup_paths()
@@ -324,36 +331,36 @@ def main():
         if data_file.exists() and not args.force and not args.skip_generation:
             response = input(f"Data file already exists: {data_file}\nContinue with existing data? [y/N]: ").strip().lower()
             if response != 'y':
-                print("Aborted by user.")
+                logger.info("Aborted by user.")
                 return 1
         
         if not args.skip_generation:
             if not generate_circuits(paths, args):
-                print("Circuit generation failed!")
+                logger.error("Circuit generation failed!")
                 return 1
         else:
             if not data_file.exists():
-                print(f"Data file not found: {data_file}")
+                logger.error(f"Data file not found: {data_file}")
                 return 1
         
         if not args.skip_visualization:
             if not visualize_circuits(paths, args):
-                print("Circuit visualization failed!")
+                logger.error("Circuit visualization failed!")
                 return 1
         
         if args.derive_equations:
             if not derive_equations(paths, args):
-                print("Equation derivation failed!")
+                logger.error("Equation derivation failed!")
                 return 1
         
-        print("Pipeline completed successfully!")
+        logger.info("Pipeline completed successfully!")
         return 0
         
     except KeyboardInterrupt:
-        print("Pipeline interrupted by user")
+        logger.info("Pipeline interrupted by user")
         return 1
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Pipeline failed with exception: {e}", exc_info=True)
         return 1
 
 
