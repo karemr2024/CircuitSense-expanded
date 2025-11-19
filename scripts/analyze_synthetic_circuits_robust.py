@@ -1,5 +1,6 @@
 import json
 import argparse
+import logging
 from pathlib import Path
 from lcapy import Circuit, s, t
 from lcapy import mna
@@ -9,11 +10,9 @@ import time
 from functools import partial
 import sympy as sp
 
-
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from convert_netlist_remove_n_nodes import convert_netlist_remove_n_nodes
+
+logger = logging.getLogger(__name__)
 
 def _multiprocessing_target(queue, func_data):
                                                                             
@@ -48,8 +47,8 @@ def run_with_timeout(func, args, timeout_seconds):
         return None, result
 
 def safe_computation_mp(func, args, timeout_seconds=30, description="computation"):
-                                                                
-    print(f"🔧 Starting {description} (timeout: {timeout_seconds}s)...")
+    """Run computation with timeout using multiprocessing."""
+    logger.debug(f"Starting {description} (timeout: {timeout_seconds}s)...")
     start_time = time.time()
     
     result, error = run_with_timeout(func, args, timeout_seconds)
@@ -57,19 +56,16 @@ def safe_computation_mp(func, args, timeout_seconds=30, description="computation
     elapsed = time.time() - start_time
     if error:
         if "Timeout" in error:
-            print(f"⏰ {description} timed out after {timeout_seconds}s")
+            logger.warning(f"{description} timed out after {timeout_seconds}s")
         else:
-            print(f"❌ {description} failed: {error}")
+            logger.error(f"{description} failed: {error}")
         return None
     else:
-        print(f"✅ {description} completed in {elapsed:.1f}s")
+        logger.debug(f"{description} completed in {elapsed:.1f}s")
         return result
 
 def limit_ad_to_infinity_str(expr_str):
-\
-\
-\
-       
+    """Limit Ad symbol to infinity in expression string."""
     try:
         if expr_str is None or ('Ad' not in str(expr_str)):
             return expr_str
@@ -93,22 +89,19 @@ def _compute_transfer_function(circuit, vs_nodes, comp):
     return limit_ad_to_infinity_str(tf)
 
 def _compute_mna_analysis(circuit, domain='t'):
-                                                                     
+    """Compute MNA analysis for circuit in given domain."""
     try:
-                                                                            
-        print(f"Creating {domain}-domain circuit for MNA...")
+        logger.debug(f"Creating {domain}-domain circuit for MNA...")
         if domain == 's':
             circuit_domain = circuit.laplace()
         else:
             circuit_domain = circuit
             
-        print(f"Creating MNA object...")
-                                                                           
+        logger.debug("Creating MNA object...")
         try:
             mna_obj = mna.MNA(circuit_domain, solver_method='scipy')
         except Exception as mna_creation_error:
-                                                           
-            print(f"scipy solver failed, trying alternative methods...")
+            logger.debug("scipy solver failed, trying alternative methods...")
             try:
                 mna_obj = mna.MNA(circuit_domain, solver_method='numpy')
             except Exception:
@@ -117,14 +110,13 @@ def _compute_mna_analysis(circuit, domain='t'):
                 except Exception as final_error:
                     return f"MNA Creation Error: Failed with all solver methods. Original: {str(mna_creation_error)}, Final: {str(final_error)}"
         
-        print(f"Getting matrix equations...")
-                              
+        logger.debug("Getting matrix equations...")
         matrix_eqs = mna_obj.matrix_equations()
         
         if matrix_eqs is None:
             return f"MNA Error: matrix_equations() returned None"
             
-        print(f"Converting to readable form...")
+        logger.debug("Converting to readable form...")
         
                                                                                   
                                                                                       
@@ -139,51 +131,6 @@ def _compute_mna_analysis(circuit, domain='t'):
         import traceback
         error_details = traceback.format_exc()
         return f"MNA Error: {str(e)}\nDetails:\n{error_details}"
-
-def debug_mna_object(netlist_string):
-                                                        
-    try:
-        print("=== DEBUG MNA OBJECT ===")
-        circuit = Circuit(netlist_string)
-        print(f"Circuit created successfully")
-        
-        circuit_s = circuit.laplace()
-        print(f"Laplace transform applied")
-        
-        mna_obj = mna.MNA(circuit_s, solver_method='scipy')
-        print(f"MNA object created with scipy solver")
-        
-        matrix_eqs = mna_obj.matrix_equations()
-        print(f"Matrix equations obtained: {type(matrix_eqs)}")
-        
-        print(f"\nMNA object attributes:")
-        for attr in sorted(dir(mna_obj)):
-            if not attr.startswith('_'):
-                try:
-                    value = getattr(mna_obj, attr)
-                    print(f"  {attr}: {type(value)} = {str(value)[:100]}...")
-                except:
-                    print(f"  {attr}: <access_error>")
-        
-        print(f"\nMatrix equations attributes:")
-        for attr in sorted(dir(matrix_eqs)):
-            if not attr.startswith('_'):
-                try:
-                    value = getattr(matrix_eqs, attr)
-                    print(f"  {attr}: {type(value)}")
-                except:
-                    print(f"  {attr}: <access_error>")
-        
-        print(f"\nBasic matrix representation:")
-        print(str(matrix_eqs))
-        
-        return matrix_eqs, mna_obj
-        
-    except Exception as e:
-        print(f"Debug failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return None, None
 
 def _convert_matrix_to_readable(matrix_eqs, mna_obj):
                                                          
@@ -306,12 +253,7 @@ def _convert_matrix_to_readable(matrix_eqs, mna_obj):
             return f"Conversion Error: {str(e)}\nMatrix form:\n{str(matrix_eqs)}"
 
 def clean_netlist_for_lcapy(spice_netlist):
-\
-\
-\
-\
-\
-       
+    """Clean SPICE netlist for lcapy compatibility."""
     lines = []
     skip_control_block = False
     
@@ -445,7 +387,7 @@ def clean_netlist_for_lcapy(spice_netlist):
             
                                                                                          
             if component.startswith('V_meas') or component.startswith('VI'):
-                print(f"⚠️ Warning: Found measurement component {component} in supposedly converted netlist")
+                logger.warning(f"Found measurement component {component} in supposedly converted netlist")
                 continue
             
                                  
@@ -477,17 +419,19 @@ def find_components(circuit):
     return components
 
 def load_circuit_data(data_source, use_converted_netlists=True):
-\
-\
-\
-\
-\
-\
-\
-\
-\
-       
-                   
+    """Load circuit data from JSON file or dict.
+    
+    Args:
+        data_source: Path to JSON file or dict with circuit data
+        use_converted_netlists: Whether to use converted netlists without N-nodes
+    
+    Returns:
+        Dictionary mapping circuit IDs to netlists
+    
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        ValueError: If data format is unknown
+    """
     if isinstance(data_source, (str, Path)):
         data_path = Path(data_source)
         if not data_path.exists():
@@ -510,23 +454,21 @@ def load_circuit_data(data_source, use_converted_netlists=True):
             if use_converted_netlists and 'cleaned_netlist' in result:
                                                    
                 netlist = result['cleaned_netlist']
-                print(f"✅ Using converted netlist for {circuit_id}")
+                logger.debug(f"Using converted netlist for {circuit_id}")
             elif 'original_netlist_with_measurements' in result:
-                                    
                 original = result['original_netlist_with_measurements']
                 netlist = convert_netlist_remove_n_nodes(original)
-                print(f"🔄 Converting netlist for {circuit_id}")
+                logger.debug(f"Converting netlist for {circuit_id}")
             elif 'cleaned_netlist' in result:
-                                                                
                 original = result['cleaned_netlist']
                 if 'N' in original and ('V_meas' in original or 'VI' in original):
                     netlist = convert_netlist_remove_n_nodes(original)
-                    print(f"🔄 Converting fallback netlist for {circuit_id}")
+                    logger.debug(f"Converting fallback netlist for {circuit_id}")
                 else:
                     netlist = original
-                    print(f"✅ Using existing clean netlist for {circuit_id}")
+                    logger.debug(f"Using existing clean netlist for {circuit_id}")
             else:
-                print(f"⚠️ No suitable netlist found for {circuit_id}")
+                logger.warning(f"No suitable netlist found for {circuit_id}")
                 continue
                 
             if circuit_id and netlist:
@@ -539,25 +481,32 @@ def load_circuit_data(data_source, use_converted_netlists=True):
                                                
                 if 'N' in netlist and ('V_meas' in netlist or 'VI' in netlist):
                     netlist = convert_netlist_remove_n_nodes(netlist)
-                    print(f"🔄 Converting netlist for {circuit_id}")
+                    logger.debug(f"Converting netlist for {circuit_id}")
                 else:
-                    print(f"✅ Using existing clean netlist for {circuit_id}")
+                    logger.debug(f"Using existing clean netlist for {circuit_id}")
             circuits[circuit_id] = netlist
     else:
         raise ValueError("Unknown data format")
     
-    print(f"📊 Loaded {len(circuits)} circuits (converted N-nodes: {use_converted_netlists})")
+    logger.info(f"Loaded {len(circuits)} circuits (converted N-nodes: {use_converted_netlists})")
     return circuits
 
 def analyze_circuit(netlist, circuit_id):
+    """Analyze a circuit netlist and extract symbolic equations.
+    
+    Args:
+        netlist: SPICE netlist string
+        circuit_id: Identifier for the circuit
+    
+    Returns:
+        Dictionary with analysis results or error information
+    """
     try:
-                                                                         
         cleaned = clean_netlist_for_lcapy(netlist)
-        print(f"\nCircuit {circuit_id}:")
-        print(f"Cleaned netlist:\n{cleaned}")
+        logger.debug(f"Circuit {circuit_id}: cleaned netlist length={len(cleaned)}")
         
         if not cleaned:
-            print("No components after cleaning")
+            logger.warning(f"Circuit {circuit_id}: No components after cleaning")
             return {'circuit_id': circuit_id, 'error': 'No components after cleaning netlist'}
             
                                               
@@ -574,12 +523,10 @@ def analyze_circuit(netlist, circuit_id):
         complexity_score = num_components + num_capacitors * 2 + num_inductors * 2 + num_opamps * 3
         matrix_size_estimate = num_nodes
         
-        print(f"Circuit complexity: {num_components} components, {num_nodes} nodes, score: {complexity_score}")
-        print(f"Estimated matrix size: {matrix_size_estimate}×{matrix_size_estimate}")
+        logger.debug(f"Circuit {circuit_id} complexity: {num_components} components, {num_nodes} nodes, score: {complexity_score}")
         
-                                                                           
         if num_components > 20 or complexity_score > 40 or matrix_size_estimate > 12:
-            print(f"Circuit too complex for symbolic analysis, skipping")
+            logger.info(f"Circuit {circuit_id} too complex for symbolic analysis, skipping")
             return {
                 'circuit_id': circuit_id,
                 'skipped': True,
@@ -594,30 +541,27 @@ def analyze_circuit(netlist, circuit_id):
                 }
             }
         
-        print(f"🔧 Creating lcapy circuit...")
+        logger.debug(f"Creating lcapy circuit for {circuit_id}...")
         try:
             circuit = Circuit(cleaned)
-            print(f"Circuit created successfully")
         except Exception as e:
-            print(f"Failed to create lcapy circuit: {e}")
+            logger.error(f"Failed to create lcapy circuit for {circuit_id}: {e}")
             return {'circuit_id': circuit_id, 'error': f'Circuit creation failed: {str(e)}'}
         
-        print(f"Finding voltage sources and components...")
+        logger.debug(f"Finding voltage sources and components for {circuit_id}...")
         try:
             voltage_sources = find_voltage_sources(circuit)
             components = find_components(circuit)
-            print(f"Voltage sources: {voltage_sources}")
-            print(f"Components: {components}")
         except Exception as e:
-            print(f"Failed to analyze circuit elements: {e}")
+            logger.error(f"Failed to analyze circuit elements for {circuit_id}: {e}")
             return {'circuit_id': circuit_id, 'error': f'Element analysis failed: {str(e)}'}
         
         if not voltage_sources:
-            print("No voltage sources found")
+            logger.warning(f"Circuit {circuit_id}: No voltage sources found")
             return {'circuit_id': circuit_id, 'error': 'No voltage sources found'}
             
         if not components:
-            print("No components found")
+            logger.warning(f"Circuit {circuit_id}: No components found")
             return {'circuit_id': circuit_id, 'error': 'No components found'}
         
         result = {
@@ -653,12 +597,11 @@ def analyze_circuit(netlist, circuit_id):
             timeout_tf = 10
             timeout_nodal = 15
         
-        print(f"Using generous timeouts: TF={timeout_tf}s, MNA={timeout_nodal}s")
+        logger.debug(f"Using timeouts: TF={timeout_tf}s, MNA={timeout_nodal}s")
         
-                                                        
-        max_transfer_functions = min(1, len(components))                             
+        max_transfer_functions = min(1, len(components))
         for i, comp in enumerate(components[:max_transfer_functions]):
-            print(f"Analyzing transfer function {i+1}/{max_transfer_functions}: {vs_name} -> {comp}")
+            logger.debug(f"Analyzing transfer function {i+1}/{max_transfer_functions}: {vs_name} -> {comp}")
             tf_result = safe_computation_mp(
                 _compute_transfer_function,
                 (circuit, vs_nodes, comp),
@@ -667,14 +610,13 @@ def analyze_circuit(netlist, circuit_id):
             )
             if tf_result is not None:
                 result['transfer_functions'][f"{vs_name}_to_{comp}"] = tf_result
-                print(f"Transfer function success: {tf_result[:100]}...")
+                logger.debug(f"Transfer function success for {circuit_id}")
             else:
                 result['transfer_functions'][f"{vs_name}_to_{comp}"] = "TIMEOUT_OR_ERROR"
-                print(f"Transfer function timed out or failed")
+                logger.warning(f"Transfer function timed out or failed for {circuit_id}")
         
-                                                                        
         if any(v != "TIMEOUT_OR_ERROR" for v in result['transfer_functions'].values()):
-            print(f"Attempting T-domain MNA equations...")
+            logger.debug("Attempting T-domain MNA equations...")
             mna_t = safe_computation_mp(
                 _compute_mna_analysis,
                 (circuit, 't'),
@@ -683,13 +625,12 @@ def analyze_circuit(netlist, circuit_id):
             )
             if mna_t is not None:
                 result['nodal_equations']['t_domain'] = mna_t
-                print(f"T-domain MNA equations success")
+                logger.debug(f"T-domain MNA equations success for {circuit_id}")
             else:
                 result['nodal_equations']['t_domain'] = "TIMEOUT_OR_ERROR"
-                print(f"T-domain MNA equations timed out or failed")
+                logger.warning(f"T-domain MNA equations timed out or failed for {circuit_id}")
                 
-                                            
-            print(f"Attempting S-domain MNA equations...")
+            logger.debug("Attempting S-domain MNA equations...")
             mna_s = safe_computation_mp(
                 _compute_mna_analysis,
                 (circuit, 's'),
@@ -698,128 +639,104 @@ def analyze_circuit(netlist, circuit_id):
             )
             if mna_s is not None:
                 result['nodal_equations']['s_domain'] = mna_s
-                print(f"S-domain MNA equations success")
+                logger.debug(f"S-domain MNA equations success for {circuit_id}")
             else:
                 result['nodal_equations']['s_domain'] = "TIMEOUT_OR_ERROR"
-                print(f"S-domain MNA equations timed out or failed")
+                logger.warning(f"S-domain MNA equations timed out or failed for {circuit_id}")
         else:
-            print(f"Skipping MNA analysis (no successful transfer functions)")
+            logger.debug("Skipping MNA analysis (no successful transfer functions)")
             result['nodal_equations']['t_domain'] = "SKIPPED_NO_TRANSFER_FUNCTIONS"
             result['nodal_equations']['s_domain'] = "SKIPPED_NO_TRANSFER_FUNCTIONS"
         
         return result
         
     except Exception as e:
-        print(f"Circuit {circuit_id} failed with exception: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Circuit {circuit_id} failed with exception: {e}", exc_info=True)
         return {'circuit_id': circuit_id, 'error': f'Exception: {str(e)}'}
 
-def main():
-                                                                          
-                                                            
-    pass
+def run_analysis(args):
+    """Run circuit analysis with given arguments.
     
-    parser = argparse.ArgumentParser(description="Analyze synthetic circuits using MNA with robust timeout handling")
-    parser.add_argument('--labels_file', default="datasets/equations_2/labels.json", 
-                       help="Path to labels.json file or symbolic_equations.json with converted netlists")
-    parser.add_argument('--output_file', default="symbolic_equations.json")
-    parser.add_argument('--max_circuits', type=int, default=1000)
-    parser.add_argument('--show_samples', action='store_true', help='Show sample equations during analysis')
-    parser.add_argument('--max_components', type=int, default=21, help='Skip circuits with more than this many components (increased default)')
-    parser.add_argument('--fast_mode', action='store_true', help='Use shorter timeouts for faster processing')
-    parser.add_argument('--use_converted_netlists', action='store_true', default=True,
-                       help='Use converted netlists without N-nodes (default: True)')
-    parser.add_argument('--converted_file', 
-                       help='Path to JSON file with converted netlists (e.g., symbolic_equations_no_n_nodes.json)')
-    args = parser.parse_args()
+    Args:
+        args: Parsed command-line arguments
     
-                                 
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
     if args.converted_file:
         data_file = args.converted_file
-        print(f"Using converted netlists from: {data_file}")
+        logger.info(f"Using converted netlists from: {data_file}")
     else:
         data_file = args.labels_file
-        print(f"Using data from: {data_file}")
+        logger.info(f"Using data from: {data_file}")
     
     if not Path(data_file).exists():
-        print(f"File not found: {data_file}")
-        return
+        logger.error(f"File not found: {data_file}")
+        return 1
     
-                                                
     try:
         circuits = load_circuit_data(data_file, use_converted_netlists=args.use_converted_netlists)
     except Exception as e:
-        print(f"Failed to load circuit data: {e}")
-        return
+        logger.error(f"Failed to load circuit data: {e}")
+        return 1
     
-    circuit_items = list(circuits.items())
-    
+    circuit_items = list(circuits.items())[:args.max_circuits]
     
     results = []
     successful = 0
     skipped = 0
     failed = 0
     
-    print(f"Analyzing {len(circuit_items)} circuits with CONVERTED NETLISTS...")
-    print(f"Using N-node converted netlists: {args.use_converted_netlists}")
-    print(f"Max components limit: {args.max_components} (increased for better success rate)")
-    print(f"Fast mode: {'ON' if args.fast_mode else 'OFF'}")
-    print(f"Using multiprocessing timeouts for robust analysis")
-    print(f"Focus: Clean netlists should improve lcapy compatibility")
+    logger.info(f"Analyzing {len(circuit_items)} circuits")
+    logger.info(f"Using N-node converted netlists: {args.use_converted_netlists}")
+    logger.info(f"Max components limit: {args.max_components}")
+    logger.info(f"Fast mode: {'ON' if args.fast_mode else 'OFF'}")
     
-                                
     error_types = {}
     
     for i, (circuit_id, netlist) in enumerate(circuit_items, 1):
-        print(f"\n{'='*60}")
-        print(f"[{i}/{len(circuit_items)}] Processing {circuit_id}...")
+        logger.info(f"[{i}/{len(circuit_items)}] Processing {circuit_id}...")
         
         result = analyze_circuit(netlist, circuit_id)
         
         if result is None:
             failed += 1
-            print(f"{circuit_id} - Analysis returned None")
+            logger.error(f"{circuit_id} - Analysis returned None")
         elif result.get('skipped', False):
             skipped += 1
             results.append(result)
             reason = result.get('reason', 'Unknown')
-            print(f"{circuit_id} - Skipped: {reason}")
+            logger.info(f"{circuit_id} - Skipped: {reason}")
         elif 'error' in result:
             failed += 1
             results.append(result)
             error_msg = result['error']
             
-                                             
             error_key = error_msg.split(':')[0] if ':' in error_msg else error_msg[:50]
             error_types[error_key] = error_types.get(error_key, 0) + 1
             
-            print(f"{circuit_id} - Error: {error_msg}")
+            logger.warning(f"{circuit_id} - Error: {error_msg}")
         else:
             successful += 1
             results.append(result)
             
-                                                         
             metrics = result.get('complexity_metrics', {})
             score = metrics.get('complexity_score', 0)
             nodes = metrics.get('num_nodes', 0)
             
-                                       
             tf_success = sum(1 for v in result.get('transfer_functions', {}).values() 
                            if v not in ["TIMEOUT_OR_ERROR", "SKIPPED_TOO_COMPLEX", "SKIPPED_NO_TRANSFER_FUNCTIONS"])
             mna_success = sum(1 for v in result.get('nodal_equations', {}).values() 
                             if v not in ["TIMEOUT_OR_ERROR", "SKIPPED_TOO_COMPLEX", "SKIPPED_NO_TRANSFER_FUNCTIONS"])
             
-            print(f"{circuit_id} - Success (complexity: {score}, nodes: {nodes}, TF: {tf_success}, MNA: {mna_success})")
+            logger.info(f"{circuit_id} - Success (complexity: {score}, nodes: {nodes}, TF: {tf_success}, MNA: {mna_success})")
             
-                                      
             if args.show_samples and 'transfer_functions' in result:
                 for tf_name, tf_expr in result['transfer_functions'].items():
                     if tf_expr not in ["TIMEOUT_OR_ERROR", "SKIPPED_TOO_COMPLEX", "SKIPPED_NO_TRANSFER_FUNCTIONS"]:
-                        print(f"  📈 Sample: {tf_name}: {tf_expr}")
+                        logger.info(f"  Sample: {tf_name}: {tf_expr}")
                         break
     
-                                   
     timeout_count = sum(1 for r in results 
                        if any('TIMEOUT_OR_ERROR' in str(v) 
                              for v in r.get('transfer_functions', {}).values()) or
@@ -828,7 +745,6 @@ def main():
     
     skipped_complex = sum(1 for r in results if r.get('skipped', False))
     
-                         
     if results:
         complexity_scores = [r.get('complexity_metrics', {}).get('complexity_score', 0) 
                            for r in results if 'complexity_metrics' in r]
@@ -841,7 +757,6 @@ def main():
     else:
         avg_complexity = max_complexity = min_complexity = 0
     
-                                     
     total_tf_success = sum(1 for r in results for v in r.get('transfer_functions', {}).values() 
                           if v not in ["TIMEOUT_OR_ERROR", "SKIPPED_TOO_COMPLEX", "SKIPPED_NO_TRANSFER_FUNCTIONS"])
     total_mna_success = sum(1 for r in results for v in r.get('nodal_equations', {}).values() 
@@ -881,24 +796,49 @@ def main():
     with open(args.output_file, 'w') as f:
         json.dump(output, f, indent=2)
     
-    print(f"\n{'='*60}")
-    print(f"📊 Final Analysis Summary:")
-    print(f"   Successful circuits: {successful}")
-    print(f"   ransfer functions: {total_tf_success}")
-    print(f"   MNA equations: {total_mna_success}")
-    print(f"   Skipped (complex): {skipped}") 
-    print(f"   Failed: {failed}")
-    print(f"   Timeouts: {timeout_count}")
-    print(f"   Circuit success rate: {successful/len(circuit_items)*100:.1f}%")
-    print(f"   Complexity range: {min_complexity:.1f} - {max_complexity:.1f} (avg: {avg_complexity:.1f})")
-    print(f"   Used converted netlists: {args.use_converted_netlists}")
+    logger.info("Final Analysis Summary:")
+    logger.info(f"   Successful circuits: {successful}")
+    logger.info(f"   Transfer functions: {total_tf_success}")
+    logger.info(f"   MNA equations: {total_mna_success}")
+    logger.info(f"   Skipped (complex): {skipped}") 
+    logger.info(f"   Failed: {failed}")
+    logger.info(f"   Timeouts: {timeout_count}")
+    logger.info(f"   Circuit success rate: {successful/len(circuit_items)*100:.1f}%")
+    logger.info(f"   Complexity range: {min_complexity:.1f} - {max_complexity:.1f} (avg: {avg_complexity:.1f})")
+    logger.info(f"   Used converted netlists: {args.use_converted_netlists}")
     
     if error_types:
-        print(f"\nError breakdown:")
+        logger.info("Error breakdown:")
         for error_type, count in sorted(error_types.items(), key=lambda x: x[1], reverse=True):
-            print(f"   • {error_type}: {count}")
+            logger.info(f"   • {error_type}: {count}")
     
-    print(f"   💾 Results saved to {args.output_file}")
+    logger.info(f"Results saved to {args.output_file}")
+    return 0
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(description="Analyze synthetic circuits using MNA with robust timeout handling")
+    parser.add_argument('--labels_file', default="datasets/equations_2/labels.json", 
+                       help="Path to labels.json file or symbolic_equations.json with converted netlists")
+    parser.add_argument('--output_file', default="symbolic_equations.json")
+    parser.add_argument('--max_circuits', type=int, default=1000)
+    parser.add_argument('--show_samples', action='store_true', help='Show sample equations during analysis')
+    parser.add_argument('--max_components', type=int, default=21, help='Skip circuits with more than this many components (increased default)')
+    parser.add_argument('--fast_mode', action='store_true', help='Use shorter timeouts for faster processing')
+    parser.add_argument('--use_converted_netlists', action='store_true', default=True,
+                       help='Use converted netlists without N-nodes (default: True)')
+    parser.add_argument('--converted_file', 
+                       help='Path to JSON file with converted netlists (e.g., symbolic_equations_no_n_nodes.json)')
+    args = parser.parse_args()
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    return run_analysis(args)
 
 if __name__ == "__main__":
-    main()
+    import sys
+    sys.exit(main())

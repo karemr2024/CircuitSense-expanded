@@ -1,0 +1,19 @@
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I"]  # errors, formatting, imports
+ignore = ["E501"]        # let black handle line length
+exclude = ["build", "dist"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+strict_optional = false
